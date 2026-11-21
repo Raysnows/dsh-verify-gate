@@ -64,7 +64,7 @@ DSH 自带安全审阅（`dsh-experimental-auto-review`）和循环提示，
 ## 安装
 
 ```sh
-dsh plugin --profile web add dsh-verify-gate
+dsh plugin --profile web add dsh-verify-gate    # 从 npm 安装
 ```
 
 ## 测试与复现

@@ -41,6 +41,24 @@ DSH 自带安全审阅（`dsh-experimental-auto-review`）和循环提示，
 > （`... message must have role "user"`），整个会话从此打不开。提醒文本包在
 > `<system-reminder>` 里，模型读到的仍是宿主提醒，不是用户发言。
 
+## 修复已被 0.1.0 写坏的会话
+
+0.1.0 可能在某条会话日志里留下一行无法加载的记录。升到 0.1.1+ 只止血，**不会修复已经坏掉的日志**：
+在那一行被改写之前，该会话会一直打不开。包里带了修复脚本：
+
+```sh
+node node_modules/dsh-verify-gate/scripts/repair-session.mjs           # 预演，扫全部会话
+node node_modules/dsh-verify-gate/scripts/repair-session.mjs --apply   # 真正改写，自动备份
+```
+
+它找出 `user/message` 里装着 `system` 消息的行，改写成宿主自己会写的标准 `system/message`
+事件（`turn`/`step` 取自前面最近的 `step/start`），只重压命中行所在的那一帧 zstd，改写前先
+自检整份日志，原文件原地留一份 `session.v4.jsonl.zstd.orig-<时间戳>`，并把该会话的投影缓存
+挪开让它重建。
+
+**请在关闭 DSH 时运行**——它直接改盘上的会话文件。`--sessions-dir` 可指定别的根目录，
+`--no-projcache` 表示不动缓存。
+
 ## 设计取舍
 
 - **只警告，不阻断。** 阻断让每条任务都变慢；提醒只花一行。

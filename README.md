@@ -75,7 +75,7 @@ The plugin loaded without restarting the host.
 ## Install
 
 ```sh
-dsh plugin --profile web add dsh-verify-gate
+dsh plugin --profile web add dsh-verify-gate    # from npm
 ```
 
 Or from a source checkout:

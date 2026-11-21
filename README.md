@@ -51,6 +51,26 @@ The injected message lands in the model's context for the very next step:
 > `<system-reminder>` wrapper is the harness's own convention for mid-conversation
 > injections, so the model still reads it as harness guidance, not user speech.
 
+## Repairing a session broken by 0.1.0
+
+0.1.0 could write one unloadable row into a session log. Upgrading to 0.1.1+ stops new
+damage, but it does not repair logs that are already broken: the session keeps failing to
+open until that row is rewritten. This package ships the repair:
+
+```sh
+node node_modules/dsh-verify-gate/scripts/repair-session.mjs           # dry run, all sessions
+node node_modules/dsh-verify-gate/scripts/repair-session.mjs --apply   # rewrite, with backups
+```
+
+It finds `user/message` rows whose payload is a `system` message, rewrites them into the
+canonical `system/message` event the harness itself writes (`turn`/`step` taken from the
+preceding `step/start`), recompresses only the Zstandard frame that held the row, verifies
+the rebuilt log before writing, keeps `session.v4.jsonl.zstd.orig-<timestamp>` beside the
+original, and moves that session's projection cache aside so it rebuilds.
+
+Run it **while DSH is closed** — it rewrites session artifacts on disk. `--sessions-dir`
+points it at a different root; `--no-projcache` leaves the cache alone.
+
 ## Design choices
 
 - **Warn, never block.** Blocking turns makes every task slower; a reminder costs one line.

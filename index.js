@@ -28,6 +28,45 @@ const DECLARE_HINT =
   'Run the project tests (or a type check) before calling the task done, ' +
   'or call verify_exemption with a concrete reason why no check applies.';
 
+/**
+ * Refuse to inject anything the session log cannot hold.
+ *
+ * DSH persists every `agent/pre-step` message whose source is not
+ * `runtime-context` as a `user/message` event, *whatever the message role is*
+ * (agent-loop: `this.session.append("user/message", message, ...)`). A
+ * `system`-role payload therefore writes a row that the loader rejects —
+ * `session event at seq N message must have role "user"` — and the session can
+ * no longer be opened at all. This has already happened once (0.1.0); the check
+ * lives next to the message shape so a future edit cannot quietly reintroduce it.
+ *
+ * @param message - candidate message for the next step's context.
+ * @returns the same message, guaranteed to be loggable.
+ */
+export function assertInjectable(message) {
+  if (message?.role !== 'user') {
+    throw new Error('verify-gate: injected messages must use role "user", got ' + JSON.stringify(message?.role));
+  }
+  const kind = message?.source?.kind;
+  if (typeof kind !== 'string' || kind === '' || kind === 'plugin') {
+    throw new Error('verify-gate: injected messages need a producer-owned source kind');
+  }
+  return message;
+}
+
+/**
+ * Build the single reminder message this plugin injects.
+ * @param text - already-composed reminder body.
+ * @returns a frozen-free user-role message wrapped in <system-reminder>.
+ */
+function nudgeMessage(text) {
+  return assertInjectable({
+    id: randomUUID(),
+    role: 'user',
+    content: [{ type: 'text', text: '<system-reminder>\n' + text + '\n</system-reminder>' }],
+    source: { kind: 'verify-gate' },
+  });
+}
+
 export function apply(ctx, config = {}) {
   const enabled = config.enabled !== false;
   const stats = { nudged: 0, clean: 0, exempted: 0 };
@@ -65,14 +104,17 @@ export function apply(ctx, config = {}) {
         if (book.nudgedTurn === turn) return decision; // 一个 turn 最多提醒一次
         book.nudgedTurn = turn;
         stats.nudged += 1;
+        // A user-role reminder, never a system-role one: the harness records every
+        // agent/pre-step message that is not runtime-context as a `user/message`
+        // session event, so a system-role payload there writes a log that can never
+        // be loaded again ("message must have role \"user\""). Wrapping the text in
+        // <system-reminder> is the harness's own convention for mid-conversation
+        // injections (skill catalog, runtime context), so the model still reads it
+        // as harness guidance rather than user speech.
+        const text = (v.reason ?? '').trim() || DECLARE_HINT;
         return {
           ...decision,
-          messages: [...decision.messages, {
-            id: randomUUID(),
-            role: 'system',
-            content: [{ type: 'text', text: (v.reason ?? '') + ' ' + DECLARE_HINT }],
-            source: { kind: 'system-prompt' },
-          }],
+          messages: [...decision.messages, nudgeMessage(text)],
         };
       } catch {
         return decision; // 注入失败一律放行，绝不打断正常流程

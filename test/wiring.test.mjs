@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { apply } from '../index.js';
+import { apply, assertInjectable } from '../index.js';
 import { createFakeCtx } from './fake-ctx.mjs';
 
 const cases = [];
@@ -17,16 +17,50 @@ test('插件加载后注册了豁免工具，并挂上三个接缝', () => {
   assert.equal(ctx.__listeners('agent/turn-stopping'), 1);
 });
 
-test('改了代码不验证 -> 下一个 pre-step 注入一条 system 消息', async () => {
+test('改了代码不验证 -> 下一个 pre-step 注入一条 user 消息', async () => {
   const ctx = createFakeCtx();
   apply(ctx, {});
   await ctx.__emitWaterfall('tools/execute', exec('edit', { file_path: 'src/a.ts' }));
   const decision = await ctx.__emitWaterfall('agent/pre-step', { turn: 1, step: 2 });
   assert.equal(decision.kind, 'enter');
   const injected = decision.messages.at(-1);
-  assert.equal(injected.role, 'system');
+  assert.equal(injected.role, 'user');
   assert.match(injected.content[0].text, /changed 1 code file\(s\)/);
   assert.ok(injected.id);
+});
+
+test('注入的消息永远是 user 角色（system 角色会写坏会话日志）', async () => {
+  // 回归：0.1.0 注入 role:'system'，而宿主把每条非 runtime-context 的
+  // pre-step 消息一律记成 user/message，导致日志校验失败、整个会话打不开。
+  const ctx = createFakeCtx();
+  apply(ctx, {});
+  await ctx.__emitWaterfall('tools/execute', exec('edit', { file_path: 'src/a.ts' }));
+  const decision = await ctx.__emitWaterfall('agent/pre-step', { turn: 1, step: 2 });
+  for (const message of decision.messages) assert.equal(message.role, 'user');
+  const injected = decision.messages.at(-1);
+  assert.ok(
+    injected.source.kind !== 'system-prompt' && injected.source.kind !== 'plugin',
+    'source.kind 必须是 producer 自有值，不能是 system-prompt / plugin',
+  );
+  assert.match(injected.content[0].text, /^<system-reminder>[\s\S]*<\/system-reminder>$/);
+});
+
+test('assertInjectable 硬拒 system 角色与非法 source', () => {
+  const base = { id: 'x', content: [], source: { kind: 'verify-gate' } };
+  assert.equal(assertInjectable({ ...base, role: 'user' }).role, 'user');
+  assert.throws(() => assertInjectable({ ...base, role: 'system' }), /must use role "user"/);
+  assert.throws(() => assertInjectable({ ...base, role: 'assistant' }), /must use role "user"/);
+  assert.throws(() => assertInjectable({ id: 'x', role: 'user', content: [], source: { kind: 'plugin' } }), /producer-owned source/);
+  assert.throws(() => assertInjectable({ id: 'x', role: 'user', content: [] }), /producer-owned source/);
+});
+
+test('提醒语只出现一次，不重复拼接', async () => {
+  const ctx = createFakeCtx();
+  apply(ctx, {});
+  await ctx.__emitWaterfall('tools/execute', exec('edit', { file_path: 'src/a.ts' }));
+  const decision = await ctx.__emitWaterfall('agent/pre-step', { turn: 1, step: 2 });
+  const text = decision.messages.at(-1).content[0].text;
+  assert.equal((text.match(/verify_exemption with a concrete reason/g) ?? []).length, 1);
 });
 
 test('同一 turn 只提醒一次', async () => {

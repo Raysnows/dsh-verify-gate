@@ -36,6 +36,11 @@ DSH 自带安全审阅（`dsh-experimental-auto-review`）和循环提示，
 > `turn/start` 与 `turn/end` 是 **session 记录**（`session.append(...)`），不是上下文事件。
 > 监听它们永远不会触发——第一版探针就踩了这个坑。
 
+> 注入的消息必须是 `user` 角色：`agent/pre-step` 里除 `runtime-context` 以外的消息，
+> 宿主一律记成 `user/message` 会话事件，角色是 `system` 时写出来的日志在加载校验时会被拒
+> （`... message must have role "user"`），整个会话从此打不开。提醒文本包在
+> `<system-reminder>` 里，模型读到的仍是宿主提醒，不是用户发言。
+
 ## 设计取舍
 
 - **只警告，不阻断。** 阻断让每条任务都变慢；提醒只花一行。

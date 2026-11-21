@@ -41,8 +41,15 @@ Three harness seams, read out of `@deepseek-ai/dsh-agent-loop/lib/index.js` on D
 The injected message lands in the model's context for the very next step:
 
 ```json
-{ "role": "system", "content": [{ "type": "text", "text": "This turn changed 1 code file(s) but nothing was run to check them. Run the project tests (or a type check) before calling the task done, or call verify_exemption with a concrete reason why no check applies." }], "source": { "kind": "system-prompt" } }
+{ "role": "user", "content": [{ "type": "text", "text": "<system-reminder>\nThis turn changed 1 code file(s) but nothing was run to check them. Run the project tests (or a type check) before calling the task done, or call verify_exemption with a concrete reason why no check applies.\n</system-reminder>" }], "source": { "kind": "verify-gate" } }
 ```
+
+> **It must be a `user` message.** `agent/pre-step` messages that are not `runtime-context`
+> are recorded by the harness as `user/message` session events no matter their role, so a
+> `system`-role payload there writes a log that fails validation on load
+> (`... message must have role "user"`) and can no longer be opened. The
+> `<system-reminder>` wrapper is the harness's own convention for mid-conversation
+> injections, so the model still reads it as harness guidance, not user speech.
 
 ## Design choices
 

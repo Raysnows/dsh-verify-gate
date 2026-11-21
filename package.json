@@ -1,6 +1,6 @@
 {
   "name": "dsh-verify-gate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Verification gate for DeepSeek Harness — reminds once when a turn changed code but nothing checked it. 改完代码没验证就在收工处叫住你，可申报豁免。",
   "type": "module",
   "main": "index.js",
@@ -40,12 +40,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/1250589385/dsh-verify-gate.git"
+    "url": "git+https://github.com/Raysnows/dsh-verify-gate.git"
   },
   "bugs": {
-    "url": "https://github.com/1250589385/dsh-verify-gate/issues"
+    "url": "https://github.com/Raysnows/dsh-verify-gate/issues"
   },
-  "homepage": "https://github.com/1250589385/dsh-verify-gate#readme",
+  "homepage": "https://github.com/Raysnows/dsh-verify-gate#readme",
   "engines": {
     "node": ">=22"
   },

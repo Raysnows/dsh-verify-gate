@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.1 — 2026-11-21
+
+- **Fix: the nudge no longer corrupts session history.** The reminder was injected as a
+  `system`-role message; the harness records every non-`runtime-context` `agent/pre-step`
+  message as a `user/message` event, so that payload produced logs rejected on load
+  (`stored session ... failed validation: message must have role "user"`) and the session
+  could not be opened again. The reminder is now a `user`-role message wrapped in
+  `<system-reminder>` with `source.kind = "verify-gate"`.
+- Added `assertInjectable()`: an injected message that is not user-role (or that carries a
+  retired `plugin`/`system-prompt` source) throws instead of reaching the log.
+- Stop duplicating the call-to-action: the verdict text already carries it (the reminder
+  used to repeat the sentence twice).
+
 ## 0.1.0 — 2026-11-21
 
 First release. Published to npm as `dsh-verify-gate@0.1.0`.

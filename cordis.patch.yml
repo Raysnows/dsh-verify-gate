@@ -1,0 +1,4 @@
+# verify-gate bundle patch: mount the host-plane plugin row.
+- insert:
+    - id: verify-gate
+      name: dsh-verify-gate

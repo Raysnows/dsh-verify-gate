@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 — 2026-11-21
+
+- Ship `scripts/repair-session.mjs`: repairs session logs that 0.1.0 already broke
+  (`user/message` rows carrying a `system` message). Dry-run by default; `--apply` rewrites,
+  keeps a `.orig-<timestamp>` backup, verifies the rebuilt log, and leaves every untouched
+  frame byte-identical.
+- README (en/zh): how to run the repair, and why it has to happen with DSH closed.
+
 ## 0.1.1 — 2026-11-21
 
 - **Fix: the nudge no longer corrupts session history.** The reminder was injected as a

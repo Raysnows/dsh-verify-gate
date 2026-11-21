@@ -2,7 +2,7 @@
 
 ## 0.1.0 — 2026-11-21
 
-First release.
+First release. Published to npm as `dsh-verify-gate@0.1.0`.
 
 - Observe tool calls through the `tools/execute` waterfall; track which code files a
   turn touched and whether anything verified them afterwards.

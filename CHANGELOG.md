@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — 2026-11-22
+
+- Add the plugin icon (`icon.svg`, 36×36 tile: a gate frame with the tick that gets through it)
+  plus the `icon` field, `./icon` export and `files` entry that make the harness plugin list
+  show it. The frame is the "gate", the tick is the only thing allowed past it.
+- No behaviour change.
+
 ## 0.1.2 — 2026-11-21
 
 - Ship `scripts/repair-session.mjs`: repairs session logs that 0.1.0 already broke

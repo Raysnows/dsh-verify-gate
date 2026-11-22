@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6 — 2026-11-22
+
+- **The npm summary now speaks Chinese first.** `description` leads with what happens
+  ("改完代码没验证，就在模型收工前叫住它") instead of an English clause, because the npm
+  search result and the market card both render this one string and most of this plugin's
+  readers write Chinese. The English sentence still follows it for anyone who does not.
+- No code change — 0.1.5's files are what the tests ran against.
+
 ## 0.1.5 — 2026-11-22
 
 - **Chinese is now the default face of the plugin.** `README.md` is the Chinese one (the market

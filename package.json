@@ -1,7 +1,7 @@
 {
   "name": "dsh-verify-gate",
-  "version": "0.1.5",
-  "description": "Completion gate for CodeBuddy (DSH) — when a turn changed code but nothing verified it, one reminder reaches the model before it can finish. AI 改完代码没验证就在收工处叫住它：改过代码却一次检查都没跑时，向模型下一步上下文注入一条提醒；确实不需要检查可申报豁免。",
+  "version": "0.1.6",
+  "description": "改完代码没验证，就在模型收工前叫住它 —— 一个 turn 里改过代码文件却一次检查都没跑时，向模型下一步的上下文注入一条提醒：去跑测试，或用具体理由申报豁免。只提醒不阻断。 Completion gate for CodeBuddy (DSH): one reminder reaches the model before it can finish when a turn changed code and nothing verified it.",
   "type": "module",
   "main": "index.js",
   "icon": "./icon.svg",

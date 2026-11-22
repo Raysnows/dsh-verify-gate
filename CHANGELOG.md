@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.7 — 2026-11-22
+
+- **Fix an inverted sentence in the README's opening.** It read "when both answers are yes it
+  reminds you" — the gate fires on *changed code* **and** *nothing checked it*, which is the
+  opposite. The one paragraph that explains what the plugin does should not describe it
+  backwards.
+- No code change.
+
 ## 0.1.6 — 2026-11-22
 
 - **The npm summary now speaks Chinese first.** `description` leads with what happens

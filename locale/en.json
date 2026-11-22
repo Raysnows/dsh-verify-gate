@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Verify Gate",
-    "description": "Reminds once when a turn changed code but nothing checked it."
+    "description": "Reminds the model once when a turn changed code but nothing verified it — exemption supported."
   }
 }

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.5 — 2026-11-22
+
+- **Chinese is now the default face of the plugin.** `README.md` is the Chinese one (the market
+  sniffs README.md for CJK and files it under `zh`, so the default page a Chinese reader lands
+  on is the Chinese text); the English README moved to `README.en.md` and keeps every section.
+  This matches where the plugin's users actually are.
+- **The opening section says what the plugin does, in plain words.** The old README opened with
+  a metrics table — evidence with no explanation in front of it. It now opens with the two
+  questions the gate asks each turn, then what it deliberately refuses to do (no blocking, no
+  docs, no judging pass/fail, no fake per-agent isolation), then the evidence.
+- `locale/zh.json` and `locale/en.json` rewritten: the card text now states the behaviour
+  ("提醒模型一次，不需要检查可申报豁免") instead of naming the mechanism.
+- `package.json`: `description` leads with what happens rather than what it is called;
+  `files` drops `README.zh.md` and ships `README.en.md`.
+- No behaviour change — same code as 0.1.4, which is what the tests cover.
+
 ## 0.1.4 — 2026-11-22
 
 - **The icon actually reaches npm now.** 0.1.3 carried the icon files in the repository but was

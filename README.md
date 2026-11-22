@@ -1,132 +1,118 @@
-# dsh-verify-gate
+# dsh-verify-gate · 完成闸门
 
-**A completion gate for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH).**
-When a turn changed code files and nothing was run to check them, it says so — once —
-at the next step, and accepts an exemption when no check applies.
+**让 AI 改完代码，别急着说「好了」。**
 
-English · [简体中文](README.zh.md)
+一个 turn 里改过代码文件、却从头到尾没跑过任何测试或类型检查时，
+这个插件会在模型收工前提醒它一次：要么真去跑一下，要么用一句具体理由申报豁免。
+
+[English](README.en.md) · 简体中文
 
 ---
 
-## Why
+## 它到底干什么
 
-Measured on a real machine, 49 sessions / 937 turns:
+AI 写代码有个通病：**写完、读一遍、觉得没问题、宣布完成** —— 但从头到尾没跑过任何东西。
+你看到的「已完成」，可能根本没人验证过。
 
-| metric | value |
+`dsh-verify-gate` 就守在这一步上。每个 turn 它只问两个问题：
+
+1. 模型这轮**改过代码文件**吗？（`.js` / `.ts` / `.py` / `.go` / `.rs` …）
+2. 改完之后**跑过任何检查吗**？（测试、类型检查、`node --check`、`tsc`、`pytest` …）
+
+两个都答「是」，它就在模型**下一步的上下文里**塞一条提醒：去跑一下，或者说明为什么不用跑。
+
+**提醒的是模型，不是弹窗提醒你。** 拦在模型说「完成了」之前，比事后你翻日志有用得多。
+
+## 为什么需要它
+
+在一台真实机器上实测，49 个会话 / 937 个 turn：
+
+| 指标 | 数值 |
 |---|---:|
-| turns that edited **code** files | 394 |
-| …that never ran a test or type check | **355 (90.1%)** |
+| 改过**代码文件**的 turn | 394 |
+| 其中一次测试/类型检查都没跑 | **355（90.1%）** |
 
-That is the failure mode Can Bölük catalogued in
-[_The Harness Problem_](https://blog.can.ac/2026/02/12/the-harness-problem/):
-the agent writes, re-reads, decides it looks fine, and stops — without ever asking reality.
+这正是 Can Bölük《The Harness Problem》列的头号失败模式。
+DSH 自带安全审阅（`dsh-experimental-auto-review`）和循环提示，但**完成边界**上没有任何守卫。
+这个插件补的就是这一块。
 
-DSH ships a safety reviewer (`dsh-experimental-auto-review`) and advisory loop reminders,
-but nothing guards the *completion* boundary. This plugin is that guard.
+## 它不会做什么
 
-## How it works
+- **不阻断。** 只提醒，不拦任务。拦一次可能省下一个 bug，但会让每条任务都变慢；
+  提醒只花一行 token。会乱叫的闸门只有一个下场：被卸载。
+- **不管文档。** 改 `.md` / `.json` 不算，否则每次提交文档都刷警告。
+- **不判对错。** 测试跑挂了也算验证过 —— 它关心的是模型有没有抬头看现实，不是现实一定说好。
+- **不假装隔离。** `agent/pre-step` 的 payload 不带 agent 身份，所以并发多代理共享一份保守账本，
+  而不是编一个假的「按 agent 分账」。
 
-Three harness seams, read out of `@deepseek-ai/dsh-agent-loop/lib/index.js` on DSH
-`0.2.2-rc.5` — not guessed:
+## 装上就生效
 
-| seam | kind | role |
+不需要配置，不需要重启宿主。装上之后：
+
+| 模型的行为 | 结果 |
+|---|---|
+| 改 `.js`，什么都不跑，说「完成」 | **提醒 1 次** |
+| 改 `.js`，跑了 `node --check` | 不提醒 |
+| 改 `.mjs`，调 `verify_exemption("只改了类型定义，无运行路径")` | 不提醒 |
+
+豁免工具有闸：理由少于 12 个字符直接拒，防止模型写「n/a」糊弄过去。
+
+## 工作方式（给想读源码的人）
+
+三个接缝，全部取自 DSH `0.2.2-rc.5` 的 `atdeepseek-ai/dsh-agent-loop/lib/index.js` 源码，不是猜的：
+
+| 接缝 | 类型 | 作用 |
 |---|---|---|
-| `tools/execute` | waterfall `(exec, next)` | observe calls; `exec.name` + `exec.arguments` |
-| `agent/pre-step` | waterfall `(payload, next)` | **inject** the reminder into `decision.messages` |
-| `agent/turn-stopping` | serial | settle the turn, reset the ledger |
+| `tools/execute` | waterfall `(exec, next)` | 观察调用；`exec.name` 与 `exec.arguments` |
+| `agent/pre-step` | waterfall `(payload, next)` | **注入**提醒到 `decision.messages` |
+| `agent/turn-stopping` | serial | 收尾结账、清空账本 |
 
-> `turn/start` and `turn/end` are **session records** (`session.append(...)`), not context
-> events. Listening for them silently never fires.
+> `turn/start` 与 `turn/end` 是 **session 记录**（`session.append(...)`），不是上下文事件。
+> 监听它们永远不会触发 —— 第一版探针就踩了这个坑。
 
-The injected message lands in the model's context for the very next step:
+> 注入的消息必须是 `user` 角色：`agent/pre-step` 里除 `runtime-context` 以外的消息，
+> 宿主一律记成 `user/message` 会话事件，角色是 `system` 时写出来的日志在加载校验时会被拒
+> （`... message must have role "user"`），整个会话从此打不开。提醒文本包在
+> `<system-reminder>` 里，模型读到的仍是宿主提醒，不是用户发言。
 
-```json
-{ "role": "user", "content": [{ "type": "text", "text": "<system-reminder>\nThis turn changed 1 code file(s) but nothing was run to check them. Run the project tests (or a type check) before calling the task done, or call verify_exemption with a concrete reason why no check applies.\n</system-reminder>" }], "source": { "kind": "verify-gate" } }
-```
+## 修复已被 0.1.0 写坏的会话
 
-> **It must be a `user` message.** `agent/pre-step` messages that are not `runtime-context`
-> are recorded by the harness as `user/message` session events no matter their role, so a
-> `system`-role payload there writes a log that fails validation on load
-> (`... message must have role "user"`) and can no longer be opened. The
-> `<system-reminder>` wrapper is the harness's own convention for mid-conversation
-> injections, so the model still reads it as harness guidance, not user speech.
-
-## Repairing a session broken by 0.1.0
-
-0.1.0 could write one unloadable row into a session log. Upgrading to 0.1.1+ stops new
-damage, but it does not repair logs that are already broken: the session keeps failing to
-open until that row is rewritten. This package ships the repair:
+0.1.0 可能在某条会话日志里留下一行无法加载的记录。升到 0.1.1+ 只止血，**不会修复已经坏掉的日志**：
+在那一行被改写之前，该会话会一直打不开。包里带了修复脚本：
 
 ```sh
-node node_modules/dsh-verify-gate/scripts/repair-session.mjs           # dry run, all sessions
-node node_modules/dsh-verify-gate/scripts/repair-session.mjs --apply   # rewrite, with backups
+node node_modules/dsh-verify-gate/scripts/repair-session.mjs           # 预演，扫全部会话
+node node_modules/dsh-verify-gate/scripts/repair-session.mjs --apply   # 真正改写，自动备份
 ```
 
-It finds `user/message` rows whose payload is a `system` message, rewrites them into the
-canonical `system/message` event the harness itself writes (`turn`/`step` taken from the
-preceding `step/start`), recompresses only the Zstandard frame that held the row, verifies
-the rebuilt log before writing, keeps `session.v4.jsonl.zstd.orig-<timestamp>` beside the
-original, and moves that session's projection cache aside so it rebuilds.
+它找出 `user/message` 里装着 `system` 消息的行，改写成宿主自己会写的标准 `system/message`
+事件（`turn`/`step` 取自前面最近的 `step/start`），只重压命中行所在的那一帧 zstd，改写前先
+自检整份日志，原文件原地留一份 `session.v4.jsonl.zstd.orig-<时间戳>`，并把该会话的投影缓存
+挪开让它重建。
 
-Run it **while DSH is closed** — it rewrites session artifacts on disk. `--sessions-dir`
-points it at a different root; `--no-projcache` leaves the cache alone.
+**请在关闭 DSH 时运行** —— 它直接改盘上的会话文件。`--sessions-dir` 可指定别的根目录，
+`--no-projcache` 表示不动缓存。
 
-## Design choices
+## 已知限制
 
-- **Warn, never block.** Blocking turns makes every task slower; a reminder costs one line.
-- **Code files only.** `.md` / `.json` edits do not count, otherwise every doc commit screams.
-- **A failing check still counts as verified.** The plugin cares whether the agent looked at
-  reality, not whether reality said yes.
-- **An exemption exists.** `verify_exemption(reason)`, reasons under 12 characters rejected.
-  A gate that cries wolf gets uninstalled.
+- **PTC 里直接 `fs` 写盘绕过工具派发**，看不到。只观察 `tools.write` / `tools.edit` 的内层调用。
+- **单账本。** 见上文「不假装隔离」。
+- **「验证」靠命令正则。** 项目自定义检查脚本可能漏判 —— 方向是多提醒一次，绝不误放过。
 
-## Live verification (DSH 0.2.2-rc.5)
-
-| arm | behaviour | nudges |
-|---|---|---:|
-| A | `write` a `.js`, verify nothing | **1** |
-| B | `write` a `.js`, then `node --check` | 0 |
-| C | `write` a `.mjs`, then `verify_exemption` | 0 |
-
-The plugin loaded without restarting the host.
-
-## Known limits
-
-- **Direct `fs` writes inside PTC bypass tool dispatch** and are not seen. Only
-  `tools.write` / `tools.edit` inner calls are observed.
-- **Single ledger.** `agent/pre-step` carries no agent identity, so concurrent agents
-  share one conservative judgement rather than a fake per-agent isolation.
-- **Verification is a command regex.** A project-specific check script may be missed —
-  the failure direction is one extra reminder, never a false pass.
-
-## Install
+## 安装
 
 ```sh
-dsh plugin --profile web add dsh-verify-gate    # from npm
+dsh plugin --profile web add dsh-verify-gate    # 从 npm 安装
 ```
 
-Or from a source checkout:
+## 测试与复现
 
 ```sh
-dsh plugin --profile web add /absolute/path/to/dsh-verify-gate
+node test/run.mjs            # 11 项账本逻辑
+node test/wiring.test.mjs    # 11 项接线（伪宿主上下文）
+node scripts/evidence.mjs    # 复现 90.1% 那份统计
 ```
 
-## Test
-
-```sh
-node test/run.mjs            # 11 ledger cases
-node test/wiring.test.mjs    # 8 wiring cases (fake host context)
-```
-
-`node --test` spawns a child per file; on a sandboxed host that fails with `EPERM`,
-so these are plain in-process runners.
-
-## Reproduce the evidence
-
-```sh
-node scripts/evidence.mjs   # reads ~/.dsh/sessions/*.jsonl.zstd
-```
-
-## License
+## 许可
 
 MIT

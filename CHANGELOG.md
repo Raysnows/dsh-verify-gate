@@ -1,11 +1,19 @@
 # Changelog
 
+## 0.1.4 — 2026-11-22
+
+- **The icon actually reaches npm now.** 0.1.3 carried the icon files in the repository but was
+  published before they were wired in, so the tarball users download has no `icon.svg`, no
+  `assets/` and no `icon` field — the plugin list showed the generic placeholder. This release
+  is the same code with the icon shipped.
+- Plugin icon (`icon.svg`, 36×36 tile): a gate frame with the tick that gets through it. The
+  frame is the "gate", the tick is the only thing allowed past it. Plus `assets/icon-180.png`
+  for the market card.
+- No behaviour change.
+
 ## 0.1.3 — 2026-11-22
 
-- Add the plugin icon (`icon.svg`, 36×36 tile: a gate frame with the tick that gets through it)
-  plus the `icon` field, `./icon` export and `files` entry that make the harness plugin list
-  show it. The frame is the "gate", the tick is the only thing allowed past it.
-- No behaviour change.
+- Published without the icon assets (see 0.1.4). No behaviour change.
 
 ## 0.1.2 — 2026-11-21
 
